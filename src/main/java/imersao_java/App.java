@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.cdimascio.dotenv.Dotenv;
 
+import java.io.IOException;
 import java.net.URI;
+import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -27,7 +29,7 @@ public class App {
 
         Movies movies = objectMapper.readValue(body, Movies.class);
 
-        movies.items().forEach(movie -> {
+        movies.items().stream().limit(3).forEach(movie -> {
             System.out.println("Title: " + FormatPretty.format(movie.title(),
                     ANSICodes.BOLD));
             System.out.println("Poster: " + FormatPretty.format(movie.image(),
@@ -38,6 +40,12 @@ public class App {
                             ANSICodes.BACKGROUND_PINK));
             System.out.println("\u2B50".repeat(
                     (int) Math.round(Double.parseDouble(movie.imDbRating()))) + "\n");
+
+            try {
+                StickerGenerator.gen(new URL(movie.image()).openStream(), movie.title());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
     }
 }
