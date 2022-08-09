@@ -1,51 +1,46 @@
 package imersao_java;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import imersao_java.content.Content;
+import imersao_java.content.ContentFetcher;
+import imersao_java.content.ContentParser;
+import imersao_java.content.ContentParserIMDB;
+import imersao_java.content.ContentParserNASA;
 import io.github.cdimascio.dotenv.Dotenv;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URL;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandlers;
+import java.util.List;
 
 public class App {
-    public static void main(String[] args) throws Exception {
-        Dotenv dotenv = Dotenv.load();
-        String endpoint = "https://imdb-api.com/en/API/Top250Movies/" + dotenv.get("IMDB_KEY");
-        URI uri = URI.create(endpoint);
-        HttpClient httpClient = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder(uri).GET().build();
-        HttpResponse<String> response =
-                httpClient.send(request, BodyHandlers.ofString());
-        String body = response.body();
+	public static void main(String[] args) throws Exception {
+		Dotenv dotenv = Dotenv.load();
+		String endpoint;
+		ContentParser contentParser;
+		switch (args[0]) {
+			case "nasa" -> {
+				endpoint = "https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY";
+				contentParser = new ContentParserNASA();
+			}
+			case "imdb" -> {
+				endpoint = "https://imdb-api.com/en/API/Top250Movies/" + dotenv.get(
+						"IMDB_KEY");
+				contentParser = new ContentParserIMDB();
+			}
+			default -> throw new RuntimeException("Invalid web service");
+		}
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.configure(
-                DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+		String rawContent = new ContentFetcher().fetch(endpoint);
 
-        Movies movies = objectMapper.readValue(body, Movies.class);
+		List<Content> contentList =
+				(List<Content>) contentParser.parse(rawContent);
 
-        movies.items().stream().limit(3).forEach(movie -> {
-            System.out.println("Title: " + FormatPretty.format(movie.title(),
-                    ANSICodes.BOLD));
-            System.out.println("Poster: " + FormatPretty.format(movie.image(),
-                    ANSICodes.BOLD));
-
-            System.out.println(
-                    FormatPretty.format("Rating: " + movie.imDbRating(),
-                            ANSICodes.BACKGROUND_PINK));
-            System.out.println("\u2B50".repeat(
-                    (int) Math.round(Double.parseDouble(movie.imDbRating()))) + "\n");
-
-            try {
-                StickerGenerator.gen(new URL(movie.image()).openStream(), movie.title());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        });
-    }
+		contentList.stream().limit(3).forEach(content -> {
+			try {
+				StickerGenerator.gen(new URL(content.getImage()).openStream(),
+						"TOPZERA", content.getTitle());
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		});
+	}
 }
